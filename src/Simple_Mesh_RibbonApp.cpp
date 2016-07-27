@@ -52,9 +52,9 @@ void Simple_Mesh_RibbonApp::update()
     if(autoDraw){
         
         vec3 tempPt;
-        tempPt.x =lmap(mPerlin.noise(noiseAccum),-0.5f,0.5f, 0.0f,(float)getWindowWidth());
-        tempPt.y =lmap(mPerlin.noise(noiseAccum+4000),-0.5f,0.5f, 0.0f,(float)getWindowHeight());
-        tempPt.z =lmap(mPerlin.noise(noiseAccum+700),-0.5f,0.5f, 0.0f,(float)getWindowHeight());
+        tempPt.x =lmap<float>(mPerlin.noise(noiseAccum),-0.5f,0.5f, 0.0f,getWindowWidth());
+        tempPt.y =lmap<float>(mPerlin.noise(noiseAccum+4000),-0.5f,0.5f, 0.0f,getWindowHeight());
+        tempPt.z =lmap<float>(mPerlin.noise(noiseAccum+700),-0.5f,0.5f, 0.0f,getWindowHeight());
         
         mPoints.push_back(tempPt);
         
@@ -83,12 +83,7 @@ void Simple_Mesh_RibbonApp::draw()
     gl::clear( Color( 0, 0, 0 ) );
     gl::enableAlphaBlending();
     gl::enableAdditiveBlending();
-    //gl::enableDepthRead();
-    //gl::enableDepthWrite();
-    
-    //CameraPersp cam;
-    //cam.lookAt( vec3( 3, 3, 3 ), vec3( 0 ) );
-    //gl::setMatrices( cam );
+
     
 
     gl::begin(GL_LINES);
@@ -96,15 +91,15 @@ void Simple_Mesh_RibbonApp::draw()
     gl::end();
     
     //THis isn't necessary yet - still trying to figure out what is happening here
-    auto lambert = gl::ShaderDef().lambert().color();
-    auto shader = gl::getStockShader(lambert);
-    shader->bind();
+//    auto lambert = gl::ShaderDef().lambert().color();
+//    auto shader = gl::getStockShader(lambert);
+//    shader->bind();
     
     gl::begin(GL_TRIANGLE_STRIP);
     drawRibbon();
     gl::end();
     
-    gl::drawStringCentered(ci::toString(getAverageFps()), vec2(20,20));
+    gl::drawStringCentered(ci::toString(getAverageFps()), vec2(40,20));
     
     
 }
@@ -122,35 +117,35 @@ void Simple_Mesh_RibbonApp::drawRibbon(){
         float rotateAngle = 90;
         //float rotateAngle=lmap((float)i, 0.0f, (float)mPoints.size(),0.0f,90.0f);
         //rotateAngle = fmodf((float)timeMan.getSeconds()*5+lmap((float)i, 0.0f, (float)mPoints.size(),0.0f,360.0f),360.0f);
-        
+
         normal = glm::rotate(tangent, glm::radians(rotateAngle), glm::normalize(tangent));
         //The other option here is to just set the rotation matrix to Z only, and this will work better when doing 2D drawing - such as:
         //normal = glm::rotate(tangent, glm::radians(rotateAngle), vec3(0,0,1));
         normal = glm::normalize(normal);
         
-        pt.x = pt.x + lmap(i,0,(int)mPoints.size(), 30,0) * mPerlin.noise(noiseAccum + i*lmap((float)i,0.0f,(float)mPoints.size(), 0.03f,0.0f));
-        pt.y = pt.y + lmap(i,0,(int)mPoints.size(), 30,0)  * mPerlin.noise(noiseAccum + i*lmap((float)i,0.0f,(float)mPoints.size(), 0.06f,0.0f));
+        pt.x = pt.x + lmap<int>(i,0,mPoints.size(), 30,0) * mPerlin.noise(noiseAccum + i*lmap<float>(i,0.0f,mPoints.size(), 0.03f,0.0f));
+        pt.y = pt.y + lmap<int>(i,0,mPoints.size(), 30,0)  * mPerlin.noise(noiseAccum + i*lmap<float>(i,0.0f,mPoints.size(), 0.06f,0.0f));
         
         
         if(i>1){
             vec3 corner;
             
-            float rotateHue =lmap((float)i, 0.0f, (float)mPoints.size(),0.0f,1.0f);
+            float rotateHue =lmap<float>(i, 0.0f, mPoints.size(),0.0f,1.0f);
             Color tempColor = Color(1.0,0.85,1.0);
             //tempColor = Color( CM_HSV, rotateHue, 1, 1 );
-            float thickness =lmap((float)i, 0.0f, (float)mPoints.size(),0.0f,80.0f);
+            float thickness =lmap<float>(i, 0.0f,mPoints.size(),0.0f,80.0f);
             //thickness = thickness*(300 * mPerlin.noise(noiseAccum + i*lmap((float)i,0.0f,(float)mPoints.size(), 0.0f,0.02f)));
             corner.x = a.x + normal.x*thickness;
             corner.y = a.y + normal.y*thickness;
-            gl::color(tempColor.r, tempColor.g, tempColor.b, lmap((float)i, 0.0f, (float)mPoints.size(),0.0f,1.0f));
+            gl::color(tempColor.r, tempColor.g, tempColor.b, lmap<float>(i, 0.0f,mPoints.size(),0.0f,1.0f));
             gl::vertex(corner);
             //rotate back the other way
             //if you rotate this around the normalized tangent as well, you won't see anything
-            normal = glm::rotate(tangent, (float)glm::radians(-rotateAngle), vec3(0,0,1));
+            normal = glm::rotate(tangent, glm::radians(-rotateAngle), vec3(0,0,1));
             normal = glm::normalize(normal);
             corner.x = a.x + normal.x*thickness;
             corner.y = a.y + normal.y*thickness;
-            gl::color(tempColor.r, tempColor.g, tempColor.b, lmap((float)i, 0.0f, (float)mPoints.size(),0.0f,1.0f));
+            gl::color(tempColor.r, tempColor.g, tempColor.b, lmap<float>(i, 0.0f,mPoints.size(),0.0f,1.0f));
             gl::vertex(corner);
         }
         tempPt = vec3(pt.x, pt.y, 0);
