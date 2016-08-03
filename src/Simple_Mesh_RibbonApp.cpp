@@ -6,6 +6,8 @@
 #include "cinder/Perlin.h"
 #include "cinder/gl/Shader.h"
 #include "cinder/Utilities.h"
+#include "cinder/Camera.h"
+#include "cinder/CameraUi.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -27,6 +29,8 @@ class Simple_Mesh_RibbonApp : public App {
     void draw() override;
     
     void drawRibbon();
+    void drawRibbonTriMesh();
+    
     
     bool mEditing;
     vector<vec3> mPoints;
@@ -38,6 +42,9 @@ class Simple_Mesh_RibbonApp : public App {
     Perlin mPerlin;
     
     bool autoDraw;
+    
+    CameraPersp cam;
+    CameraUi camUI;
 };
 
 void Simple_Mesh_RibbonApp::setup()
@@ -45,6 +52,9 @@ void Simple_Mesh_RibbonApp::setup()
     noiseAccum = 0;
     noiseSpeed = 0.04;
     autoDraw = true;
+    
+    cam = CameraPersp(getWindowWidth(), getWindowHeight(),60.0f);
+    camUI = CameraUi(&cam, getWindow());
 }
 
 void Simple_Mesh_RibbonApp::update()
@@ -82,22 +92,28 @@ void Simple_Mesh_RibbonApp::draw()
 {
     gl::clear( Color( 0, 0, 0 ) );
     gl::enableAlphaBlending();
-    gl::enableAdditiveBlending();
+    //gl::enableDepthRead();
+    //gl::enableAdditiveBlending();
 
-    
-
+    /*
+     //Try this if you want to see an even simpler way of drawing the ribbons - it's a lot slower at high numbers though...
     gl::begin(GL_LINES);
     drawRibbon();
     gl::end();
-    
-    //THis isn't necessary yet - still trying to figure out what is happening here
-//    auto lambert = gl::ShaderDef().lambert().color();
-//    auto shader = gl::getStockShader(lambert);
-//    shader->bind();
-    
     gl::begin(GL_TRIANGLE_STRIP);
     drawRibbon();
     gl::end();
+     */
+    
+    
+    gl::setMatrices(cam);
+    
+
+        drawRibbonTriMesh();
+    
+    gl::setMatricesWindow(getWindowSize());
+    //gl::disableDepthRead();
+
     
     gl::drawStringCentered(ci::toString(getAverageFps()), vec2(40,20));
     
@@ -153,6 +169,91 @@ void Simple_Mesh_RibbonApp::drawRibbon(){
     }
 
 }
+
+void Simple_Mesh_RibbonApp::drawRibbonTriMesh(){
+    
+    TriMeshRef trimesh;
+    
+    
+    trimesh = TriMesh::create(TriMesh::Format().positions(3).colors(4)); //if you dont do this, it wont know how many colors to assign and when you try to add colors to it, it will crash and die
+    
+    vec3 a,b,tangent, normal, mappedA, mappedB, prevTopEdge, prevBottomEdge, topEdge, bottomEdge;
+    
+    
+    for(int i=0; i<mPoints.size()-1; i++){
+        
+        a = mPoints[i];
+        b = mPoints[i-1];
+        tangent = b-a;
+        float rotateAngle = 90;
+        //float rotateAngle=lmap((float)i, 0.0f, (float)mPoints.size(),0.0f,90.0f);
+        //rotateAngle = fmodf((float)timeMan.getSeconds()*5+lmap((float)i, 0.0f, (float)mPoints.size(),0.0f,360.0f),360.0f);
+        
+        normal = glm::rotate(tangent, glm::radians(rotateAngle), glm::normalize(tangent));
+        //The other option here is to just set the rotation matrix to Z only, and this will work better when doing 2D drawing - such as:
+        //normal = glm::rotate(tangent, glm::radians(rotateAngle), vec3(0,0,1));
+        normal = glm::normalize(normal);
+        
+        mPoints[i].x = mPoints[i].x +  lmap<int>(i,0,mPoints.size(), 30,0) * mPerlin.noise(noiseAccum + i*lmap<float>(i,0.0f,mPoints.size(), 0.03f,0.0f));
+        mPoints[i].y = mPoints[i].y +  lmap<int>(i,0,mPoints.size(), 30,0)  * mPerlin.noise(noiseAccum + i*lmap<float>(i,0.0f,mPoints.size(), 0.06f,0.0f));
+        mPoints[i].z = mPoints[i].z + lmap<int>(i,0,mPoints.size(), 30,0)  * mPerlin.noise(noiseAccum + i*lmap<float>(i,0.0f,mPoints.size(), 0.1f,0.0f));
+        
+        
+        vec3 topEdge;
+        
+        float rotateHue =lmap<float>(i, 0.0f, mPoints.size(),1.0f,0.0f);
+        ColorA tempColor = ColorA(1.0,0.85,1.0, 1.0);
+        tempColor = Color( CM_HSV, rotateHue, 1, 1 );
+        tempColor.a = lmap<float>(i, 0.0f,mPoints.size(),0.0f,1.0f);
+        
+        float thickness =lmap<float>(i, 0.0f,mPoints.size(),0.0f,40.0f);
+        //thickness = thickness*(300 * mPerlin.noise(noiseAccum + i*lmap((float)i,0.0f,(float)mPoints.size(), 0.0f,0.02f)));
+        topEdge.x = a.x + normal.x*thickness;
+        topEdge.y = a.y + normal.y*thickness;
+        topEdge.z = a.z + normal.z*thickness;
+        
+        normal = glm::rotate(tangent, glm::radians(-rotateAngle), vec3(0,0,1));
+        normal = glm::normalize(normal);
+        bottomEdge.x = a.x + normal.x*thickness;
+        bottomEdge.y = a.y + normal.y*thickness;
+        bottomEdge.z = a.z + normal.y*thickness;
+        
+        if(i>2){
+    
+            trimesh->appendPosition(prevTopEdge);
+            trimesh->appendColorRgba(tempColor);
+            trimesh->appendPosition(topEdge);
+            trimesh->appendColorRgba(tempColor);
+            
+            //BOTTOM CORNER
+            //rotate back the other way
+            //if you rotate this around the normalized tangent as well, you won't see anything
+            trimesh->appendPosition(bottomEdge);
+            trimesh->appendColorRgba(tempColor);
+            trimesh->appendPosition(prevBottomEdge);
+            trimesh->appendColorRgba(tempColor);
+            
+            
+            int numVerts =trimesh->getNumVertices();
+            int vIndx0 = numVerts-4;
+            int vIndx1 = numVerts-3;
+            int vIndx2 = numVerts-2;
+            int vIndx3 = numVerts-1;
+            
+            trimesh->appendTriangle(vIndx0, vIndx1, vIndx2);
+            trimesh->appendTriangle(vIndx0, vIndx3, vIndx2);
+
+        }
+        prevBottomEdge = bottomEdge;
+        prevTopEdge = topEdge;
+
+    }
+    
+    gl::draw(*trimesh);
+
+
+}
+
 
 void Simple_Mesh_RibbonApp::mouseDown( MouseEvent event )
 {
